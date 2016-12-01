@@ -6,13 +6,28 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	filepath "path"
 	"strings"
 )
 
 const (
-	LUNCHY_VERSION = "0.2.1"
+	LUNCHY_VERSION  = "0.2.1"
+	USER_PLIST_PATH = "Library/LaunchAgents"
+	SODU_PLIST_PATH = "/Library/LaunchDaemons"
 )
+
+var (
+	is_root = false
+)
+
+func getPlistDir() string {
+	if is_root {
+		return SODU_PLIST_PATH
+	} else {
+		return fmt.Sprintf("%s/%s", os.Getenv("HOME"), USER_PLIST_PATH)
+	}
+}
 
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
@@ -57,7 +72,7 @@ func findPlists(path string) []string {
 }
 
 func getPlists() []string {
-	path := fmt.Sprintf("%s/Library/LaunchAgents", os.Getenv("HOME"))
+	path := getPlistDir()
 	files := findPlists(path)
 
 	return files
@@ -156,7 +171,7 @@ func startDaemons(args []string) {
 }
 
 func startDaemon(name string) {
-	path := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", os.Getenv("HOME"), name)
+	path := fmt.Sprintf("%s/%s.plist", getPlistDir(), name)
 	_, err := exec.Command("launchctl", "load", path).Output()
 
 	if err != nil {
@@ -188,7 +203,7 @@ func stopDaemons(args []string) {
 }
 
 func stopDaemon(name string) {
-	path := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", os.Getenv("HOME"), name)
+	path := fmt.Sprintf("%s/%s.plist", getPlistDir(), name)
 	_, err := exec.Command("launchctl", "unload", path).Output()
 
 	if err != nil {
@@ -234,7 +249,7 @@ func showPlist(args []string) {
 }
 
 func printPlistContent(name string) {
-	path := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", os.Getenv("HOME"), name)
+	path := fmt.Sprintf("%s/%s.plist", getPlistDir(), name)
 	contents, err := ioutil.ReadFile(path)
 
 	if err != nil {
@@ -258,7 +273,7 @@ func editPlist(args []string) {
 }
 
 func editPlistContent(name string) {
-	path := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", os.Getenv("HOME"), name)
+	path := fmt.Sprintf("%s/%s.plist", getPlistDir(), name)
 	editor := os.Getenv("EDITOR")
 
 	if len(editor) == 0 {
@@ -284,7 +299,7 @@ func installPlist(args []string) {
 	}
 
 	info, _ := os.Stat(path)
-	base_path := fmt.Sprintf("%s/%s", os.Getenv("HOME"), "Library/LaunchAgents")
+	base_path := getPlistDir()
 	new_path := fmt.Sprintf("%s/%s", base_path, info.Name())
 
 	if fileExists(new_path) && os.Remove(new_path) != nil {
@@ -301,8 +316,10 @@ func installPlist(args []string) {
 func removePlist(args []string) {
 	exitWithInvalidArgs(args, "name required")
 
+	stopDaemons(args)
+
 	name := args[2]
-	base_path := fmt.Sprintf("%s/%s", os.Getenv("HOME"), "Library/LaunchAgents")
+	base_path := getPlistDir()
 
 	for _, plist := range getPlists() {
 		if strings.Index(plist, name) != -1 {
@@ -318,7 +335,7 @@ func removePlist(args []string) {
 }
 
 func scanPath(args []string) {
-	path := fmt.Sprintf("%s/%s", os.Getenv("HOME"), "Library/LaunchAgents")
+	path := getPlistDir()
 
 	if len(args) >= 3 {
 		path = args[2]
@@ -418,6 +435,12 @@ func fatal(message string) {
 }
 
 func main() {
+	usr, _ := user.Current()
+
+	is_root = usr.Username == "root"
+
+	//fmt.Println(usr.Username)
+
 	args := os.Args
 
 	if len(args) == 1 {
