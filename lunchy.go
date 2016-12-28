@@ -14,7 +14,7 @@ import (
 const (
 	LUNCHY_VERSION  = "0.2.1"
 	USER_PLIST_PATH = "Library/LaunchAgents"
-	SODU_PLIST_PATH = "/Library/LaunchDaemons"
+	SUDO_PLIST_PATH = "/Library/LaunchDaemons"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 
 func getPlistDir() string {
 	if is_root {
-		return SODU_PLIST_PATH
+		return SUDO_PLIST_PATH
 	} else {
 		return fmt.Sprintf("%s/%s", os.Getenv("HOME"), USER_PLIST_PATH)
 	}
